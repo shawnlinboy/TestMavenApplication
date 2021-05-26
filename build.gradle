@@ -28,7 +28,7 @@ buildscript {
  */
 Properties properties = new Properties()
 properties.load(project.rootProject.file('local.properties').newDataInputStream())
-def mavenUrl = properties.get('maven.dir')
+def mavenUrl = properties.getProperty('maven.dir')
 def uname = properties.getProperty('user.name')
 def upwd = properties.getProperty('user.password')
 
