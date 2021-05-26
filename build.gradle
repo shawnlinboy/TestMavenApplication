@@ -1,0 +1,117 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+buildscript {
+    ext.kotlin_version = "1.5.0"
+    repositories {
+        maven {
+            url 'https://maven.aliyun.com/repository/google'
+        }
+        maven {
+            url 'https://maven.aliyun.com/repository/central'
+        }
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:4.2.1"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+
+        /**
+         * 1. 声明 classpath
+         */
+        classpath 'org.jfrog.buildinfo:build-info-extractor-gradle:4.24.1'
+    }
+}
+
+/**
+ * 把你的用户名跟密码写到 local.properties 里去，然后加载到这里
+ */
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+def mavenUrl = properties.get('maven.dir')
+def uname = properties.getProperty('user.name')
+def upwd = properties.getProperty('user.password')
+
+allprojects {
+    /**
+     * 2. 增加这两个 plugin
+     */
+    apply plugin: 'com.jfrog.artifactory'
+    apply plugin: 'maven-publish'
+
+    repositories {
+        maven {
+            url 'https://maven.aliyun.com/repository/google'
+        }
+        maven {
+            url 'https://maven.aliyun.com/repository/central'
+        }
+        /**
+         * 记得加这个，因为你 app 模块想引用
+         * 记得端口号！！！不要问我为什么还要带端口号，我就花了3分钟搭起来的你还想怎样
+         */
+        maven {
+            url 'http://maven.linshen.me:8081/artifactory/all/'
+        }
+    }
+}
+
+/**
+ * 告诉插件你要发布的远端是哪里
+ */
+artifactory {
+    //远端仓库的地址，还是不要忘记端口号
+    contextUrl = mavenUrl
+    publish {
+        repository {
+            //发到哪个仓库
+            repoKey = "libs-snapshot-local"
+            //你的用户名
+            username = uname
+            //你的密码
+            password = upwd
+            maven = true
+        }
+    }
+}
+
+/**
+ * 4. 告诉 artifactory 你要发布个啥
+ * 注意，这个模块是发布 library 的，如果你要发布的是 apk，不要自作聪明，请你老老实实打开下面的链接依葫芦画瓢：
+ * https://jfrog.com/knowledge-base/how-to-publish-build-info-and-artifacts-from-a-gradle-android-project-into-artifactory/
+ */
+project("library") {
+    // 发布任务应该在 assemble 之后执行
+    artifactoryPublish.dependsOn("assemble")
+    publishing {
+        // 声明你要发布个啥
+        publications {
+            // 默念「我要发布的是 aar」
+            aar(MavenPublication) {
+                //这就不用解释了吧哥
+                groupId = "me.linshen.testmaven"
+                artifactId = "libraryName"
+                version = "1.0.3-SNAPSHOT"
+                artifact("$buildDir/outputs/aar/${project.getName()}-release.aar")
+            }
+        }
+    }
+
+    /**
+     * 这段也不要忘记
+     */
+    artifactoryPublish {
+        publications(publishing.publications.aar)
+    }
+}
+
+/**
+ * 最后执行 ./gradlew clean library:artifactoryPublish 就好了。library 是你 lib 模块的名称。
+ *
+ * 如果出现一个 com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field "slf" 错误，
+ * 不要管，这是插件的 bug。去这里看：http://maven.linshen.me/ui/repos/tree/General/all ，有了就是发布成功了。
+ */
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
